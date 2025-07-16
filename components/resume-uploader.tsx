@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from "framer-motion"
 
 interface ResumeData {
   name: string
-  email: string
+  emails: string[]
   skills: string[]
   education: string[]
   experience: string[]
@@ -42,36 +42,37 @@ export function ResumeUploader({ onDataExtracted }: ResumeUploaderProps) {
   })
 
   const handleUpload = async () => {
-    if (!file) return
+  if (!file) return;
 
-    setIsUploading(true)
+  setIsUploading(true);
 
-    try {
-      // 1. Create FormData to send file to API
-      const formData = new FormData()
-      formData.append("resume", file)
+  try {
+    const formData = new FormData();
+    formData.append("resume", file);
 
-      // 2. Send POST request to /api/parse-resume
-      const response = await fetch("/api/parse-resume", {
-        method: "POST",
-        body: formData,
-      })
+    const response = await fetch("/api/parse-resume", {
+      method: "POST",
+      body: formData,
+    });
 
-      if (response.ok) {
-        // 3. Receive structured JSON and store in state
-        const data = await response.json()
-        setExtractedData(data)
-        onDataExtracted(data)
-      } else {
-        throw new Error("Failed to parse resume")
-      }
-    } catch (error) {
-      console.error("Error uploading resume:", error)
-      alert("Failed to parse resume. Please try again.")
-    } finally {
-      setIsUploading(false)
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Resume parse failed:", errorText);
+      throw new Error("Resume parsing failed.");
     }
+
+    const data: ResumeData = await response.json();
+
+    setExtractedData(data);
+    onDataExtracted(data);
+  } catch (error) {
+    console.error("Error uploading resume:", error);
+    alert("Failed to parse resume. Please ensure it's a valid PDF or DOCX file.");
+  } finally {
+    setIsUploading(false);
   }
+};
+
 
   return (
     <Card className="h-full bg-gradient-to-br from-white to-blue-50 border-2 border-blue-200 hover:shadow-xl transition-all duration-300">
@@ -242,7 +243,9 @@ export function ResumeUploader({ onDataExtracted }: ResumeUploaderProps) {
                   <Mail className="h-4 w-4 text-green-600 mr-2" />
                   <div>
                     <p className="text-xs text-green-600 font-medium">EMAIL</p>
-                    <p className="text-sm font-semibold text-slate-900">{extractedData.email}</p>
+                    <p className="text-sm font-semibold text-slate-900">
+                        {extractedData.emails.join(", ")}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -275,6 +278,19 @@ export function ResumeUploader({ onDataExtracted }: ResumeUploaderProps) {
                     ))}
                   </div>
                 </div>
+                <div>
+                <div className="flex items-center mb-2">
+                  <FileText className="h-4 w-4 text-green-600 mr-2" />
+                  <p className="text-xs text-green-600 font-medium">EXPERIENCE</p>
+                </div>
+                <div className="space-y-1">
+                  {extractedData.experience.map((exp, index) => (
+                    <p key={index} className="text-sm text-slate-700 bg-white p-2 rounded border border-green-200">
+                      {exp}
+                    </p>
+                  ))}
+                </div>
+              </div>
               </div>
             </motion.div>
           )}
