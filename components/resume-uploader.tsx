@@ -1,5 +1,4 @@
-"use client"
-
+"use client";
 import { useState, useCallback } from "react"
 import { useDropzone } from "react-dropzone"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"

@@ -3,13 +3,13 @@ import { scrapeScholarProfile } from "@/lib/scholar/scraper";
 
 export async function POST(req: NextRequest) {
   try {
-    const { url } = await req.json();
+    const { profileUrl } = await req.json();
 
-    if (!url || !url.includes("scholar.google.com")) {
-      return NextResponse.json({ error: "Invalid Google Scholar URL" }, { status: 400 });
+    if (!profileUrl || typeof profileUrl !== "string" || !profileUrl.includes("scholar.google.")) {
+      return NextResponse.json({ error: "Invalid Scholar URL" }, { status: 400 });
     }
 
-    const profileData = await scrapeScholarProfile(url);
+    const profileData = await scrapeScholarProfile(profileUrl);
     return NextResponse.json(profileData);
   } catch (error) {
     console.error("[ScholarScrapeError]:", error);

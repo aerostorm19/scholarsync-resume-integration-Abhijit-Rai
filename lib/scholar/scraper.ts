@@ -1,35 +1,51 @@
-import cheerio from "cheerio";
+import puppeteer from "puppeteer";
 
-export async function scrapeScholarProfile(url: string) {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error("Failed to fetch Scholar profile");
+export async function scrapeScholarProfile(profileUrl: string) {
+  const browser = await puppeteer.launch({
+    headless: "new",
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  });
 
-  const html = await response.text();
-  const $ = cheerio.load(html);
+  const page = await browser.newPage();
+  await page.setUserAgent(
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+  );
 
-  const name = $("#gsc_prf_in").text().trim();
-  const affiliation = $(".gsc_prf_il").first().text().trim();
-  const interests = $(".gsc_prf_ila").map((_, el) => $(el).text()).get();
+  await page.goto(profileUrl, { waitUntil: "networkidle2", timeout: 30000 });
 
-  const stats = $("td.gsc_rsb_std").map((_, el) => $(el).text()).get(); // citations, h-index, i10-index
+  const data = await page.evaluate(() => {
+    const getText = (selector: string) =>
+      document.querySelector(selector)?.textContent?.trim() || "";
 
-  const publications = $(".gsc_a_tr").map((_, el) => {
-    const title = $(el).find(".gsc_a_at").text().trim();
-    const authors = $(el).find(".gsc_a_at").parent().next().text().trim();
-    const venue = $(el).find(".gsc_a_at").parent().next().next().text().trim();
-    const year = $(el).find(".gsc_a_y").text().trim();
-    const citations = $(el).find(".gsc_a_c").text().trim();
+    const getAllText = (selector: string) =>
+      Array.from(document.querySelectorAll(selector)).map((el) => el.textContent?.trim() || "");
 
-    return { title, authors, venue, year, citations };
-  }).get();
+    const name = getText("#gsc_prf_in");
+    const affiliation = document.querySelector(".gsc_prf_il")?.textContent?.trim() || "";
+    const interests = getAllText(".gsc_prf_ila");
 
-  return {
-    name,
-    affiliation,
-    hIndex: stats[2],
-    i10Index: stats[4],
-    citations: stats[0],
-    interests,
-    publications,
-  };
+    const stats = Array.from(document.querySelectorAll("td.gsc_rsb_std")).map(
+      (el) => el.textContent?.trim() || ""
+    );
+
+    const publications = Array.from(document.querySelectorAll(".gsc_a_tr"))
+      .slice(0, 20)
+      .map((el) => ({
+        title: el.querySelector(".gsc_a_at")?.textContent?.trim() || "",
+        year: el.querySelector(".gsc_a_y")?.textContent?.trim() || "",
+        citations: el.querySelector(".gsc_a_c")?.textContent?.trim() || "",
+      }));
+
+    return {
+      name,
+      affiliation,
+      interests,
+      citations: stats[0],
+      hIndex: stats[2],
+      publications,
+    };
+  });
+
+  await browser.close();
+  return data;
 }

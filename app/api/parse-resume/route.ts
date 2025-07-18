@@ -10,8 +10,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file uploaded or invalid format" }, { status: 400 });
     }
 
-    const parsedData = await parseResumeFile(file);
+    // Validate file size (max 5MB)
+    if (file.size > 5_000_000) {
+      return NextResponse.json({ error: "File too large (max 5MB)" }, { status: 400 });
+    }
 
+    // Validate MIME type
+    const validTypes = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ];
+
+    if (!validTypes.includes(file.type)) {
+      return NextResponse.json({ error: "Unsupported file type" }, { status: 400 });
+    }
+
+    const parsedData = await parseResumeFile(file);
     return NextResponse.json(parsedData);
   } catch (error) {
     console.error("[ResumeParsingError]", error);
