@@ -1,0 +1,5 @@
+echo "fastapi
+uvicorn
+sentence-transformers
+torch
+pydantic" > requirements.txt
