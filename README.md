@@ -1,36 +1,204 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ScholarSync – Resume & Google Scholar Integration App
 
-## Getting Started
+## Objective
 
-First, run the development server:
+Develop a full‑stack web application using Next.js that integrates a user’s resume and Google Scholar profile to suggest suitable projects based on their skills, education, and academic work. The app will:
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. Parse the resume to extract key details (name, contact, skills, experience, education).  
+2. Fetch the Google Scholar profile to gather research interests, publications, citations, and h‑index.  
+3. Run a recommendation engine that suggests projects categorized by the user’s skills and academic expertise.  
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Table of Contents
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. [Frontend Specifications](#frontend-specifications)  
+2. [Backend Specifications](#backend-specifications)  
+3. [State Management & Async Patterns](#state-management--async-patterns)  
+4. [Security Considerations](#security-considerations)  
+5. [Design Patterns](#design-patterns)  
+6. [Testing](#testing)  
+7. [Linting & Tooling](#linting--tooling)  
+8. [Deliverables & Submission](#deliverables--submission)  
+9. [Evaluation Criteria](#evaluation-criteria)  
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## Frontend Specifications
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 1. Core Technologies
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Framework**: Next.js (App Router, SSR/SSG)  
+- **Language**: TypeScript  
+- **Styling**: Tailwind CSS + shadcn/ui components  
+- **State Management**: Redux Toolkit (with Thunks)  
+- **Animations**: Framer Motion  
 
-## Deploy on Vercel
+### 2. Key UI Components
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **ResumeUploader**:  
+  - Drag & drop or click to upload PDF/DOCX  
+  - Shows upload progress, file metadata  
+  - “Analyze Resume” button  
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **ScholarProfileInput**:  
+  - URL input field for Google Scholar  
+  - Validates URL format, shows loader on fetch  
+  - Displays researcher name, affiliation, citations, h‑index, interests, recent publications  
+
+- **ProjectSuggestions**:  
+  - Lists recommended projects with title, description, match score badge  
+  - Tags for matched skills & research areas  
+  - “Refine Analysis” & “Save Results” buttons  
+
+- **ResultsPage**:  
+  - Summary cards for resume & scholar data  
+  - Grid of suggested projects with dynamic gradients and hover effects  
+
+---
+
+## Backend Specifications
+
+### 1. Resume Parsing API
+
+- **Route**: `POST /api/parse-resume`  
+- **Implementation**: Next.js API Route  
+- **Parser**: `pdf-parse` (PDF) and `mammoth.js` (DOCX)  
+- **Output**:  
+  ```json
+  {
+    "name": "John Doe",
+    "emails": ["john@example.com"],
+    "phone": "+1-555-123-4567",
+    "skills": ["JavaScript","React","AWS",…],
+    "education": ["B.Sc. Computer Science 2020",…],
+    "experience": ["Frontend Intern – XYZ Corp (2021–22)",…]
+  }
+
+## 2. Google Scholar API
+
+- **Route**: `POST /api/scrape-scholar`  
+- **Implementation**: Next.js API Route using Puppeteer  
+- **Data Extracted**:  
+  - `name` (selector `#gsc_prf_in`)  
+  - `affiliation` (selector `.gsc_prf_il`)  
+  - `interests` (selector `.gsc_prf_ila`)  
+  - `citations`, `hIndex` (from `td.gsc_rsb_std`)  
+  - `publications` (first 20 rows, selector `.gsc_a_tr`)
+
+---
+
+## 3. Project Suggestion Logic
+
+- **Route**: `POST /api/suggest-projects`  
+- **Input**: Parsed resume JSON + scholar JSON  
+- **Engine**:  
+  1. **Embeddings**: Sentence‑Transformers `all‑mpnet‑base‑v2` served via a FastAPI microservice (`embed-engine/`)  
+  2. **Matcher**: Cosine similarity between the concatenated profile embedding and each project’s embedding  
+  3. **Fallback**: If no high‑score matches are found, return the top 3 generic projects with a forced 50% match score  
+- **Storage**: Supabase table `results` with columns:
+  - `id` UUID (primary key)  
+  - `created_at` TIMESTAMP  
+  - `resume_data` JSONB  
+  - `scholar_data` JSONB  
+  - `project_suggestions` JSONB  
+
+---
+
+## State Management & Async Patterns
+
+### Redux Slices
+
+- **resumeSlice** — stores parsed resume data  
+- **scholarSlice** — stores Google Scholar profile data  
+- **suggestionSlice** — stores project suggestions  
+
+### Async Thunks
+
+- **fetchResume** — calls `/api/parse-resume`  
+- **fetchScholar** — calls `/api/scrape-scholar`  
+- **fetchSuggestions** — invokes the embedding engine, then saves to Supabase  
+
+### Promise Patterns
+
+- `Promise.all()` — run resume parse and scholar scrape in parallel  
+- `Promise.race()` — optionally fallback to the fastest parser if multiple are configured  
+- Sequential chaining — resume ⟶ scholar ⟶ embed ⟶ database save
+
+---
+
+## Security Considerations
+
+### Input Validation
+
+- File type & size checks on resume uploads  
+- URL pattern validation for Scholar profile endpoint  
+
+### API Security
+
+- Rate limiting on `/api/scrape-scholar` to prevent abuse  
+- Secrets (Supabase keys, service roles) stored exclusively in environment variables  
+- Supabase Row‑Level Security (RLS) with a policy allowing only the service role to insert  
+
+### Sanitization & Headers
+
+- Strip any HTML from parsed text to prevent XSS  
+- Use `dangerouslySetInnerHTML` only on sanitized strings  
+- Configure a strict CSP via Next.js’s `headers()` API
+
+---
+
+## Design Patterns
+
+| Pattern    | Use Case                                                                    |
+|------------|------------------------------------------------------------------------------|
+| **Factory**   | Instantiate `PDFParser` vs `DocxParser` based on file type                   |
+| **Strategy**  | Swapable text‑extraction strategies for different resume formats             |
+| **Observer**  | UI components subscribe to Redux store updates for live progress feedback     |
+| **Singleton** | Single Supabase client and single embedding‐model instance across the app     |
+| **Adapter**   | Normalize Puppeteer vs Cheerio scrapers under a common ScholarProfile interface |
+
+---
+
+## Testing
+
+### Unit Tests (Jest & RTL)
+
+- **ResumeUploader** renders and fires API calls correctly  
+- **scholarSlice** reducers and async thunks  
+- **matcher.ts** scoring logic with mocked embeddings  
+
+### Integration Tests
+
+- Next.js API routes tested via `supertest` or Next’s built‑in test utils  
+- Mock Puppeteer & `pdf-parse` to simulate edge cases  
+
+### E2E Tests (Cypress)
+
+- Full upload → analyze → results workflow  
+- Test with a variety of resume files (different formats, missing sections)  
+- Validate error handling on invalid Google Scholar URLs  
+
+## Linting & Tooling
+
+- **ESLint + Prettier**  
+  - Configured for TypeScript, React, and Next.js  
+  - Rules enforced via `.eslintrc.json` and `.prettierrc`  
+  - Automatically fixes formatting and lint errors on save or via CLI
+
+- **Husky Pre‑commit Hooks**  
+  - Runs `eslint --fix` and `prettier --write` on staged files  
+  - Ensures code style consistency before commits  
+  - Defined in `package.json` under `"husky"` scripts
+
+- **EditorConfig**  
+  - `.editorconfig` enforces consistent indentation, line endings, and charset  
+  - Shared across IDEs to standardize developer environment
+
+- **TypeScript**  
+  - Strict mode enabled (`"strict": true`) in `tsconfig.json`  
+  - No implicit `any`, strict null checks, and path aliases configured
+
+- **Gitignore**  
+  - Ignores build artifacts (`.next/`, `node_modules/`, `venv/`, etc.)  
+  - Keeps repository clean and reduces merge conflicts
