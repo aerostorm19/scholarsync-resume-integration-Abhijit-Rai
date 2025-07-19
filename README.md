@@ -19,8 +19,7 @@ Develop a full‑stack web application using Next.js that integrates a user’s 
 5. [Design Patterns](#design-patterns)  
 6. [Testing](#testing)  
 7. [Linting & Tooling](#linting--tooling)  
-8. [Deliverables & Submission](#deliverables--submission)  
-9. [Evaluation Criteria](#evaluation-criteria)  
+
 
 ---
 
