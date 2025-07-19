@@ -202,3 +202,60 @@ Develop a full‑stack web application using Next.js that integrates a user’s 
 - **Gitignore**  
   - Ignores build artifacts (`.next/`, `node_modules/`, `venv/`, etc.)  
   - Keeps repository clean and reduces merge conflicts
+
+## Installation & Setup
+
+> Prerequisite: Node.js v18+, Python 3.10+, and Git
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/your-username/scholarsync.git
+cd scholarsync
+```
+
+### 2. Install Frontend Dependencies
+
+```bash
+cd scholar-sync
+npm install
+```
+
+### 3. Install Backend Dependencies
+
+```bash
+cd embed-engine
+python -m venv venv
+source venv/bin/activate  
+pip install -r requirements.txt
+```
+
+> If missing, install manually:
+```bash
+pip install fastapi uvicorn sentence-transformers torch
+```
+
+### 4. Environment Variables
+
+Create `.env.local` in `scholar-sync/`:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://<your-project>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+### 5. Start the Servers
+
+Run embedding engine:
+
+```bash
+cd embed-engine
+uvicorn app:app --reload --port 8001
+```
+
+Run Next.js frontend:
+
+```bash
+cd scholar-sync
+npm run dev
